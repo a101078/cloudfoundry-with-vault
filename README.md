@@ -255,41 +255,39 @@ Our broker is going to talk to the instance of Vault we've been using. The
 broker does not require full management of the system.
 
 ```sh
-$ export VAULT_ADDR="https://vault.hashicorp.rocks"
-$ export VAULT_TOKEN="root"
-$ export USERNAME="vault"
-$ export PASSWORD="vault"
+$ cat scripts/setup-env.sh
+# ...
+
+$ source scripts/setup-env.sh
 ```
 
 Next create a new org and space
 
 ```sh
-$ cf create-org demo
-$ cf target -o demo
-$ cf create-space vault-broker
-$ cf target -s vault-broker
+$ cf target -o demo -s vault-broker
 ```
 
 Clone down the broker so we can push it up
 
 ```sh
 $ git clone https://github.com/hashicorp/cf-vault-broker
-$ cd cf-vault-broker
 ```
 
 And push
 
 ```sh
+$ pushd cf-vault-broker
 $ cf push --random-route --no-start
+$ popd
 ```
 
 Configure the broker via envvars:
 
 ```sh
-$ cf set-env vault-broker VAULT_ADDR "$VAULT_ADDR"
-$ cf set-env vault-broker VAULT_TOKEN "$VAULT_TOKEN"
-$ cf set-env vault-broker SECURITY_USER_NAME "$USERNAME"
-$ cf set-env vault-broker SECURITY_USER_PASSWORD "$PASSWORD"
+$ cat scripts/cf-set-env.sh
+# ...
+
+$ ./scripts/cf-set-env.sh
 ```
 
 And now start it
@@ -308,27 +306,26 @@ Get the randomly assigned URL (demo note: probably just easier to copy-paste
 from previous output).
 
 ```sh
-BROKER_URL="..."
+CF_BROKER_URL="..."
 ```
 
 Check that our service is, in fact, offered:
 
 ```
-$ curl -s "${USERNAME}:${PASSWORD}@${BROKER_URL}/v2/catalog" | jq .
+$ curl -s "${CF_USERNAME}:${CF_PASSWORD}@${CF_BROKER_URL}/v2/catalog" | jq .
 ```
 
 Next we need to register the broker with CF (emphasize that this broker could be
 running in any other service)
 
 ```sh
-$ cf create-space example
 $ cf target -s example
 ```
 
 Now create the service broker
 
 ```sh
-$ cf create-service-broker vault-broker "${USERNAME}" "${PASSWORD}" "https://${BROKER_URL}" --space-scoped
+$ cf create-service-broker vault-broker "${CF_USERNAME}" "${CF_PASSWORD}" "https://${CF_BROKER_URL}" --space-scoped
 ```
 
 See if the broker is in the marketplace
@@ -349,13 +346,14 @@ Check if it's running
 $ cf services
 ```
 
-(Optional, show logs on Vault server with `sudo journalctl -u vault`)
+(Optional, show logs on Vault server with `sudo journalctl -fu vault`)
 
 Let's start up a silly demo app that just echos an envvar:
 
 ```sh
-$ cd cf-demo-app
+$ pushd cf-demo-app
 $ cf push --health-check-type process
+$ popd
 ```
 
 Show the current env
